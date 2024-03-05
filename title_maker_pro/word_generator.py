@@ -17,9 +17,9 @@ class WordGenerator:
 
         self.is_urban = is_urban
 
-        stanza.download("en")
+        # stanza.download("en", download_method=None)
         self.stanza_pos_pipeline = stanza.Pipeline(
-            lang="en", processors="tokenize,mwt,pos", use_gpu=("cpu" not in self.device.type)
+            lang="en", processors="tokenize,mwt,pos", use_gpu=("cpu" not in self.device.type),
         )
 
         logger.info(f"Using device {self.device}")
