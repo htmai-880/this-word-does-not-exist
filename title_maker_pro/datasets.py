@@ -339,16 +339,55 @@ class ParsedDictionaryDefinitionDataset(Dataset):
     def approx_pos(cls, nlp, sentence, lookup_idx, lookup_len):
         doc = nlp(sentence)
         uposes = Counter()
+        multi_token_len = 0
 
-        for sentence in doc.sentences:
-            for word in sentence.words:
-                if (word.start_char is None) or (word.end_char is None):
-                    raise RuntimeError("Unable to extract start and end positions!")
-                start_char = word.start_char 
-                end_char = word.end_char
-                uposes[word.upos] += _len_range_overlap(
-                    (lookup_idx, lookup_idx + lookup_len - 1), (start_char, end_char - 1)
-                )
+        for sentence_ in doc.sentences:
+            for word in sentence_.words:
+                # TODO: Handle composite words such as "Alan's" which are split into 2
+                # Example:
+                #   {
+                #     "id": [
+                #     4,
+                #     5
+                #     ],
+                #     "text": "rijeka's",
+                #     "start_char": 16,
+                #     "end_char": 24
+                # },
+                # {
+                #     "id": 4,
+                #     "text": "rijeka",
+                #     "upos": "PROPN",
+                #     "xpos": "NNP",
+                #     "feats": "Number=Sing"
+                # },
+                # {
+                #     "id": 5,
+                #     "text": "'s",
+                #     "upos": "PART",
+                #     "xpos": "POS"
+                # },
+
+                multi_token = isinstance(word.id, list)
+                if multi_token:
+                    multi_token_len = len(word.id)
+                else:
+                    multi_token_len = max(0, multi_token_len - 1)
+
+                if not multi_token_len == 0 and ((word.start_char is None) or (word.end_char is None)):
+                    print(sentence)
+                    raise RuntimeError(f"Unable to extract start and end positions! Word: {word}")
+                if multi_token_len > 0:
+                    continue
+                try:
+                    start_char = word.start_char 
+                    end_char = word.end_char
+                    uposes[word.upos] += _len_range_overlap(
+                        (lookup_idx, lookup_idx + lookup_len - 1), (start_char, end_char - 1)
+                    )
+                except:
+                    print(sentence)
+                    raise RuntimeError(f"Unable to compute uposes in {sentence_.words}")
 
         ((tag, _),) = uposes.most_common(1)
         return tag
@@ -822,7 +861,6 @@ class InverseParsedDictionaryDefinitionDataset(Dataset):
 
                 sentence_tokens = generated[i, :].tolist()
                 decoded = tokenizer.decode(sentence_tokens)
-
                 m = split_re.match(decoded)
                 if not m:
                     continue
@@ -842,6 +880,7 @@ class InverseParsedDictionaryDefinitionDataset(Dataset):
                     decoded=decoded,
                     decoded_tokens=sentence_tokens,
                 )
+                print(generated_word)
 
                 if blacklist and blacklist.contains(title):
                     continue
@@ -855,7 +894,6 @@ class InverseParsedDictionaryDefinitionDataset(Dataset):
                     ret.append(generated_word)
                     seen_titles.add(generated_word.word.lower())
                     t.update()
-
         return ret[:num], None
 
     def _make_examples(self, tokenizer, entry: dictionary_definition.Entry):

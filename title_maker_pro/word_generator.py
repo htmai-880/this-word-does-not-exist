@@ -77,7 +77,7 @@ class WordGenerator:
     def probably_real_word(self, word):
         return self.blacklist.contains(word)
 
-    def generate_urban_definition(self, word, user_filter=None):
+    def generate_urban_definition(self, word, do_sample=False, user_filter=None):
         prefix = f"{datasets.SpecialTokens.BOS_TOKEN}{word}{datasets.SpecialTokens.DEFINITION_SEP}"
         expanded, stats = datasets.UrbanDictionaryDataset.generate_words(
             self.tokenizer,
@@ -85,7 +85,7 @@ class WordGenerator:
             num=1,
             prefix=prefix,
             max_iterations=1,
-            generation_args=dict(top_k=50, num_return_sequences=5, max_length=self.approx_max_length, do_sample=True,),
+            generation_args=dict(top_k=50, num_return_sequences=5, max_length=self.approx_max_length, do_sample=do_sample,),
             dedupe_titles=False,
             user_filter=user_filter,
             filter_proper_nouns=False,
@@ -102,7 +102,7 @@ class WordGenerator:
         else:
             return None
 
-    def generate_definition(self, word, user_filter=None):
+    def generate_definition(self, word, do_sample=False, user_filter=None):
         if self.is_urban:
             return self.generate_urban_definition(word, user_filter)
 
@@ -113,7 +113,8 @@ class WordGenerator:
             num=1,
             prefix=prefix,
             max_iterations=1,
-            generation_args=dict(top_k=75, num_return_sequences=5, max_length=self.approx_max_length, do_sample=True,),
+            generation_args=dict(top_k=75, max_length=self.approx_max_length, do_sample=do_sample,
+                                 num_return_sequences=5 if do_sample else 1),
             example_match_pos_pipeline=self.stanza_pos_pipeline,
             dedupe_titles=False,
             user_filter=user_filter,
@@ -163,12 +164,15 @@ class WordGenerator:
         else:
             return None
 
-    def generate_word_from_definition(self, definition, user_filter=None):
+    def generate_word_from_definition(self, definition, do_sample=False, user_filter=None):
         if self.is_urban:
             raise RuntimeError("Urban dataset not supported yet")
 
         # Data peculiarity: definitions ending in a period are out of domain
         prefix = f"{datasets.SpecialTokens.BOS_TOKEN}{definition.rstrip('. ')}{datasets.SpecialTokens.DEFINITION_SEP}"
+        
+        # Model is a GPT2LMHeadModel
+        # print(self.approx_max_length) #250 by default
         expanded, stats = datasets.InverseParsedDictionaryDefinitionDataset.generate_words(
             self.tokenizer,
             self.inverse_model,
@@ -176,12 +180,32 @@ class WordGenerator:
             num=1,
             prefix=prefix,
             max_iterations=5,
-            generation_args=dict(top_k=200, num_return_sequences=5, max_length=self.approx_max_length, do_sample=True,),
+            generation_args=dict(top_k=200, max_length=self.approx_max_length, do_sample=do_sample,
+                                    num_return_sequences=5) if do_sample else
+                            dict(max_length=self.approx_max_length),
             dedupe_titles=True,
             user_filter=user_filter,
         )
 
         logger.debug(stats)
+
+        if expanded:
+            return expanded[0]
+        else:
+            # Remove blacklist if we still have no result
+            expanded, stats = datasets.InverseParsedDictionaryDefinitionDataset.generate_words(
+            self.tokenizer,
+            self.inverse_model,
+            blacklist=None,
+            num=1,
+            prefix=prefix,
+            max_iterations=5,
+            generation_args=dict(top_k=200, max_length=self.approx_max_length, do_sample=do_sample,
+                                    num_return_sequences=5) if do_sample else
+                            dict(max_length=self.approx_max_length),
+            dedupe_titles=True,
+            user_filter=user_filter,
+            )
 
         if expanded:
             return expanded[0]
