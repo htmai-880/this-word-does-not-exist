@@ -5,7 +5,7 @@ from word_service_proto import wordservice_pb2
 from word_service_proto import wordservice_pb2_grpc
 
 
-def run(host, port, api_key, auth_token, timeout, use_tls, word):
+def run(host, port, api_key, auth_token, timeout, use_tls, word, do_sample=False):
     if use_tls:
         with open("nginx.pem", "rb") as f:
             creds = grpc.ssl_channel_credentials(f.read())
@@ -22,6 +22,7 @@ def run(host, port, api_key, auth_token, timeout, use_tls, word):
 
     req = wordservice_pb2.DefineWordRequest()
     req.word = word
+    req.do_sample = do_sample
     try:
         response = stub.DefineWord(req, timeout, metadata=metadata)
     except Exception:
@@ -40,5 +41,6 @@ if __name__ == "__main__":
     parser.add_argument("--auth_token", default=None, help="The JWT auth token to use for the call")
     parser.add_argument("--use_tls", type=bool, default=False, help="Enable when the server requires TLS")
     parser.add_argument("--word", type=str, default="fuddleduddle", help="The word to define")
+    parser.add_argument("--do_sample", type=bool, default=False, help="Greedy generation or not.")
     args = parser.parse_args()
-    run(args.host, args.port, args.api_key, args.auth_token, args.timeout, args.use_tls, args.word)
+    run(args.host, args.port, args.api_key, args.auth_token, args.timeout, args.use_tls, args.word, args.do_sample)

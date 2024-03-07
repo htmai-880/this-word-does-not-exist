@@ -48,17 +48,17 @@ class WordServiceServicer(wordservice_pb2_grpc.WordServiceServicer):
 
     def GenerateWord(self, request, context):
         gen_word = self.word_generator.generate_word()
-        return wordservice_pb2.GenerateWordResponse(word=self.gen_word_to_word_definition(gen_word))
+        return wordservice_pb2.GenerateWordResponse(word=self.gen_word_to_word_definition(gen_word, dataset=None))
 
     def WordFromDefinition(self, request, context):
-        gen_word = self.word_generator.generate_word_from_definition(request.definition)
-        return wordservice_pb2.WordFromDefinitionResponse(word=self.gen_word_to_word_definition(gen_word))
+        gen_word = self.word_generator.generate_word_from_definition(request.definition, do_sample=request.do_sample)
+        return wordservice_pb2.WordFromDefinitionResponse(word=self.gen_word_to_word_definition(gen_word, dataset=None))
 
     def DefineWord(self, request, context):
         if request.dataset in (DatasetType.UD_FILTERED, DatasetType.UD_UNFILTERED):
             gen_word = self.urban_generator.generate_definition(request.word)
         elif request.dataset is None or request.dataset == DatasetType.OED:
-            gen_word = self.word_generator.generate_definition(request.word)
+            gen_word = self.word_generator.generate_definition(request.word, do_sample=request.do_sample)
         else:
             raise RuntimeError("Bad dataset")
         return wordservice_pb2.DefineWordResponse(
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         "--device", help="Force a certain device (cuda / cpu)", type=str,
     )
     parser.add_argument("--forward-model-path", help="Model path for (Word -> Definition)", type=str, required=True)
-    parser.add_argument("--forward-urban-model-path", help="Urban dictionary model path", type=str, required=True)
+    parser.add_argument("--forward-urban-model-path", help="Urban dictionary model path", type=str, required=False, default=None)
     parser.add_argument("--inverse-model-path", help="Model path for (Definition -> Word)", type=str, required=True)
     parser.add_argument(
         "--blacklist-path", help="Blacklist path for word generation", type=str, required=True,

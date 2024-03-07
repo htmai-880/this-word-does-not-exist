@@ -27,6 +27,7 @@ message WordDefinition {
 message DefineWordRequest {
   string word = 1;
   DatasetType dataset = 2;
+  bool do_sample = 3;
 }
 
 message DefineWordResponse {
@@ -35,6 +36,7 @@ message DefineWordResponse {
 
 message WordFromDefinitionRequest {
   string definition = 1;
+  bool do_sample = 2;
 }
 message WordFromDefinitionResponse {
   WordDefinition word = 1;
@@ -43,4 +45,5 @@ message WordFromDefinitionResponse {
 message GenerateWordRequest {}
 message GenerateWordResponse {
   WordDefinition word = 1;
+  bool do_sample = 2;
 }
