@@ -14,7 +14,7 @@ class WordGenerator:
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
-
+        
         self.is_urban = is_urban
 
         # stanza.download("en", download_method=None)
@@ -102,9 +102,15 @@ class WordGenerator:
         else:
             return None
 
-    def generate_definition(self, word, do_sample=False, user_filter=None):
+    def generate_definition(self, word, do_sample=False, user_filter=None,
+                            generation_args=None):
         if self.is_urban:
             return self.generate_urban_definition(word, user_filter)
+        
+        if generation_args is None:
+            generation_args = dict(top_k=75, max_length=self.approx_max_length,
+                 do_sample=do_sample,
+                num_return_sequences=5 if do_sample else 1)
 
         prefix = f"{datasets.SpecialTokens.BOS_TOKEN}{word}{datasets.SpecialTokens.POS_SEP}"
         expanded, stats = datasets.ParsedDictionaryDefinitionDataset.generate_words(
@@ -113,8 +119,7 @@ class WordGenerator:
             num=1,
             prefix=prefix,
             max_iterations=1,
-            generation_args=dict(top_k=75, max_length=self.approx_max_length, do_sample=do_sample,
-                                 num_return_sequences=5 if do_sample else 1),
+            generation_args=generation_args,
             example_match_pos_pipeline=self.stanza_pos_pipeline,
             dedupe_titles=False,
             user_filter=user_filter,
@@ -164,7 +169,8 @@ class WordGenerator:
         else:
             return None
 
-    def generate_word_from_definition(self, definition, do_sample=False, user_filter=None):
+    def generate_word_from_definition(self, definition, do_sample=False, user_filter=None,
+                                      generation_args=None):
         if self.is_urban:
             raise RuntimeError("Urban dataset not supported yet")
 
@@ -173,16 +179,19 @@ class WordGenerator:
         
         # Model is a GPT2LMHeadModel
         # print(self.approx_max_length) #250 by default
+
+        if generation_args is None:
+            generation_args = dict(top_k=200, max_length=self.approx_max_length, do_sample=do_sample,
+                                    num_return_sequences=5) if do_sample else dict(max_length=self.approx_max_length)
+
         expanded, stats = datasets.InverseParsedDictionaryDefinitionDataset.generate_words(
             self.tokenizer,
             self.inverse_model,
             blacklist=self.blacklist,
             num=1,
             prefix=prefix,
-            max_iterations=5,
-            generation_args=dict(top_k=200, max_length=self.approx_max_length, do_sample=do_sample,
-                                    num_return_sequences=5) if do_sample else
-                            dict(max_length=self.approx_max_length),
+            max_iterations=5 if do_sample else 1,
+            generation_args=generation_args,
             dedupe_titles=True,
             user_filter=user_filter,
         )
@@ -199,10 +208,8 @@ class WordGenerator:
             blacklist=None,
             num=1,
             prefix=prefix,
-            max_iterations=5,
-            generation_args=dict(top_k=200, max_length=self.approx_max_length, do_sample=do_sample,
-                                    num_return_sequences=5) if do_sample else
-                            dict(max_length=self.approx_max_length),
+            max_iterations=5 if do_sample else 1,
+            generation_args=generation_args,
             dedupe_titles=True,
             user_filter=user_filter,
             )

@@ -1,0 +1,1 @@
+from .word_from_definition import WordFromDefinitionRequest, WordFromDefinitionResponse

@@ -1,0 +1,1 @@
+from .generate_word import GenerateWordResponse

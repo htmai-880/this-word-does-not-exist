@@ -342,7 +342,8 @@ class ParsedDictionaryDefinitionDataset(Dataset):
         multi_token_len = 0
 
         for sentence_ in doc.sentences:
-            for word in sentence_.words:
+            prev_end_char = 0
+            for i, word in enumerate(sentence_.words):
                 # TODO: Handle composite words such as "Alan's" which are split into 2
                 # Example:
                 #   {
@@ -382,10 +383,18 @@ class ParsedDictionaryDefinitionDataset(Dataset):
                 try:
                     start_char = word.start_char 
                     end_char = word.end_char
+
+                    if start_char is None:
+                        start_char = prev_end_char + 1
+                    if end_char is None:
+                        end_char = start_char + len(word.text)
+
                     uposes[word.upos] += _len_range_overlap(
                         (lookup_idx, lookup_idx + lookup_len - 1), (start_char, end_char - 1)
                     )
-                except:
+                    prev_end_char = end_char
+                except Exception as e:
+                    print(e)
                     print(sentence)
                     raise RuntimeError(f"Unable to compute uposes in {sentence_.words}")
 
