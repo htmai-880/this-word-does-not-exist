@@ -57,15 +57,22 @@ def word_from_definition(request: WordFromDefinitionRequest):
     dataset = request.dataset.name
     do_sample = request.do_sample
     temperature = request.temperature
-    if temperature and temperature > 0:
-        do_sample=True
-        gen_word = word_generator.generate_word_from_definition(
-            request.definition, do_sample=do_sample, generation_args=dict(
-                top_k=200, max_length=200, do_sample=do_sample,
-                temperature=temperature,
-                num_return_sequences=5))
-    else:
-        gen_word = word_generator.generate_word_from_definition(request.definition, do_sample=do_sample)
+    gen_word = None
+    n_tries = 0
+    max_tries = 20
+    while gen_word is None and n_tries < max_tries:
+        if temperature and temperature > 0:
+            do_sample=True
+            gen_word = word_generator.generate_word_from_definition(
+                request.definition, do_sample=do_sample, generation_args=dict(
+                    top_k=200, max_length=200, do_sample=do_sample,
+                    temperature=temperature,
+                    num_return_sequences=5))
+            n_tries += 1
+        else:
+            if n_tries > 0:
+                do_sample = True
+            gen_word = word_generator.generate_word_from_definition(request.definition, do_sample=do_sample)
     return WordFromDefinitionResponse(
         word=gen_word_to_word_definition(
             gen_word,
